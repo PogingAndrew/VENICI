@@ -40,7 +40,7 @@ function RequireAdmin({ children }: { children: JSX.Element }) {
 function FullscreenLoader() {
   return (
     <div className="flex h-screen items-center justify-center text-ink-500">
-      <div className="animate-pulse">Loading FitTrack…</div>
+      <div className="animate-pulse">Loading Venici…</div>
     </div>
   );
 }

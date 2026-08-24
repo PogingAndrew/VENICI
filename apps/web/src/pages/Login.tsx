@@ -33,7 +33,7 @@ export default function Login() {
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-lg font-bold text-white">
             F
           </div>
-          <span className="text-lg font-bold text-ink-900">FitTrack</span>
+          <span className="text-lg font-bold text-ink-900">Venici</span>
         </div>
         <h1 className="mb-1 text-xl font-bold text-ink-900">Welcome back</h1>
         <p className="mb-6 text-sm text-ink-500">Log in to continue tracking your progress.</p>

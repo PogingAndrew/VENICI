@@ -65,7 +65,7 @@ export default function Register() {
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-lg font-bold text-white">
             F
           </div>
-          <span className="text-lg font-bold text-ink-900">FitTrack</span>
+          <span className="text-lg font-bold text-ink-900">Venici</span>
         </div>
 
         <div className="mb-6 flex items-center gap-2 text-xs font-semibold text-ink-500">
