@@ -1,0 +1,17 @@
+# Spins up a local PostgreSQL instance for development.
+# Run: docker compose up -d
+version: "3.8"
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fitness_tracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - fitness_pg_data:/var/lib/postgresql/data
+volumes:
+  fitness_pg_data:

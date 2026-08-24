@@ -1,0 +1,379 @@
+// Fitness & Nutrition Tracking System — Prisma schema
+// Design principle: fitness facts are historical events (INSERT), never overwritten.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------------------
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Sex {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
+enum GoalType {
+  WEIGHT_LOSS
+  WEIGHT_GAIN
+  WEIGHT_MAINTENANCE
+  FITNESS_IMPROVEMENT
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+enum ExerciseCategory {
+  CHEST
+  BACK
+  LEGS
+  SHOULDERS
+  ARMS
+  CORE
+  FULL_BODY
+  CARDIO
+}
+
+enum CardioType {
+  RUNNING
+  JOGGING
+  WALKING
+  CYCLING
+  OTHER
+}
+
+enum CardioStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+// Distinguishes where a piece of activity/calorie data originated —
+// required by the "never conflate consumed vs burned, manual vs device" rule.
+enum DataSource {
+  MANUAL
+  GPS
+  WEARABLE
+}
+
+// ------------------------------------------------------------------
+// USERS & PROFILE
+// ------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(USER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile             Profile?
+  goals               Goal[]
+  bodyMeasurements    BodyMeasurement[]
+  meals               Meal[]
+  workouts            Workout[]
+  cardioActivities    CardioActivity[]
+  wearableDevices     WearableDevice[]
+  wearableActivities  WearableActivityRecord[]
+  progressSnapshots   ProgressSnapshot[]
+  reports             Report[]
+  refreshTokens       RefreshToken[]
+  customFoods         Food[]                    @relation("UserCustomFoods")
+
+  @@index([email])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Profile {
+  id             String         @id @default(cuid())
+  userId         String         @unique
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  dateOfBirth    DateTime?
+  sex            Sex?
+  heightCm       Float?
+  activityLevel  ActivityLevel  @default(MODERATE)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+// ------------------------------------------------------------------
+// GOALS & BODY MEASUREMENTS (historical, append-only)
+// ------------------------------------------------------------------
+
+model Goal {
+  id             String     @id @default(cuid())
+  userId         String
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           GoalType
+  startingValue  Float
+  targetValue    Float
+  currentValue   Float
+  startDate      DateTime   @default(now())
+  targetDate     DateTime?
+  status         GoalStatus @default(ACTIVE)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([userId, status])
+}
+
+model BodyMeasurement {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weightKg   Float
+  bodyFatPct Float?
+  notes      String?
+  recordedAt DateTime @default(now())
+
+  @@index([userId, recordedAt])
+}
+
+// ------------------------------------------------------------------
+// NUTRITION
+// ------------------------------------------------------------------
+
+// A Food with createdByUserId = null is part of the shared, admin-managed
+// library (visible to everyone). A Food with createdByUserId set is a
+// personal library entry, visible only to its owner.
+model Food {
+  id              String   @id @default(cuid())
+  name            String
+  servingSize     String
+  calories        Float
+  proteinG        Float
+  carbsG          Float
+  fatG            Float
+  fiberG          Float
+  createdByUserId String?
+  createdByUser   User?    @relation("UserCustomFoods", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  mealItems MealItem[]
+
+  @@index([name])
+  @@index([createdByUserId])
+}
+
+model Meal {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      MealType
+  loggedAt  DateTime  @default(now())
+  createdAt DateTime  @default(now())
+
+  items MealItem[]
+
+  @@index([userId, loggedAt])
+}
+
+model MealItem {
+  id       String @id @default(cuid())
+  mealId   String
+  meal     Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  foodId   String
+  food     Food   @relation(fields: [foodId], references: [id])
+  quantity Float  @default(1) // multiplier of the food's serving size
+
+  @@index([mealId])
+}
+
+// ------------------------------------------------------------------
+// EXERCISES & WORKOUTS
+// ------------------------------------------------------------------
+
+model Exercise {
+  id           String           @id @default(cuid())
+  name         String
+  category     ExerciseCategory
+  description  String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  workoutExercises WorkoutExercise[]
+
+  @@index([category])
+}
+
+model Workout {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  performedAt    DateTime @default(now())
+  durationMin    Int?
+  caloriesBurned Float?
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  exercises WorkoutExercise[]
+
+  @@index([userId, performedAt])
+}
+
+model WorkoutExercise {
+  id         String   @id @default(cuid())
+  workoutId  String
+  workout    Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id])
+  sets       Int
+  reps       Int
+  weightKg   Float?
+
+  @@index([workoutId])
+}
+
+// ------------------------------------------------------------------
+// GPS CARDIO
+// ------------------------------------------------------------------
+
+model CardioActivity {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           CardioType
+  status         CardioStatus @default(ACTIVE)
+  startedAt      DateTime     @default(now())
+  endedAt        DateTime?
+  durationSec    Int          @default(0)
+  distanceMeters Float        @default(0)
+  avgPaceSecKm   Float?
+  avgSpeedKmh    Float?
+  caloriesBurned Float        @default(0)
+  source         DataSource   @default(GPS)
+  createdAt      DateTime     @default(now())
+
+  routePoints RoutePoint[]
+
+  @@index([userId, startedAt])
+}
+
+model RoutePoint {
+  id         String         @id @default(cuid())
+  activityId String
+  activity   CardioActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  latitude   Float
+  longitude  Float
+  elevationM Float?
+  recordedAt DateTime
+
+  @@index([activityId, recordedAt])
+}
+
+// ------------------------------------------------------------------
+// WEARABLES
+// ------------------------------------------------------------------
+
+model WearableDevice {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider    String   // e.g. "mock", "fitbit", "garmin"
+  deviceName  String
+  connectedAt DateTime @default(now())
+  isActive    Boolean  @default(true)
+
+  activityRecords WearableActivityRecord[]
+
+  @@index([userId])
+}
+
+model WearableActivityRecord {
+  id             String         @id @default(cuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId       String
+  device         WearableDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  date           DateTime
+  steps          Int?
+  caloriesBurned Float?
+  avgHeartRate   Int?
+  activeMinutes  Int?
+  source         DataSource     @default(WEARABLE)
+  createdAt      DateTime       @default(now())
+
+  @@index([userId, date])
+}
+
+// ------------------------------------------------------------------
+// PROGRESS & REPORTS
+// ------------------------------------------------------------------
+
+// A daily rollup snapshot, computed and cached so the dashboard/progress
+// pages don't have to re-aggregate raw tables on every request.
+model ProgressSnapshot {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date              DateTime
+  weightKg          Float?
+  caloriesConsumed  Float    @default(0)
+  proteinG          Float    @default(0)
+  carbsG            Float    @default(0)
+  fatG              Float    @default(0)
+  fiberG            Float    @default(0)
+  caloriesBurned    Float    @default(0)
+  cardioDistanceM   Float    @default(0)
+  workoutMinutes    Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+model Report {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  periodStart   DateTime
+  periodEnd     DateTime
+  summaryJson   Json     // computed summary payload (see reports.service.ts)
+  createdAt     DateTime @default(now())
+
+  @@index([userId, periodStart])
+}

@@ -1,0 +1,83 @@
+import { Router } from "express";
+import { z } from "zod";
+import { prisma } from "../../lib/prisma";
+import { authenticate } from "../../middleware/auth";
+import { validate } from "../../middleware/validate";
+import { asyncHandler } from "../../middleware/asyncHandler";
+import { ApiError } from "../../middleware/errorHandler";
+
+const router = Router();
+router.use(authenticate);
+
+const createSchema = z.object({
+  body: z.object({
+    type: z.enum([
+      "WEIGHT_LOSS",
+      "WEIGHT_GAIN",
+      "WEIGHT_MAINTENANCE",
+      "FITNESS_IMPROVEMENT",
+    ]),
+    startingValue: z.number(),
+    targetValue: z.number(),
+    targetDate: z.string().datetime().optional(),
+  }),
+});
+
+router.get(
+  "/",
+  asyncHandler(async (req, res) => {
+    const goals = await prisma.goal.findMany({
+      where: { userId: req.user!.id },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json(goals);
+  })
+);
+
+router.post(
+  "/",
+  validate(createSchema),
+  asyncHandler(async (req, res) => {
+    const { type, startingValue, targetValue, targetDate } = req.body;
+    const goal = await prisma.goal.create({
+      data: {
+        userId: req.user!.id,
+        type,
+        startingValue,
+        targetValue,
+        currentValue: startingValue,
+        targetDate: targetDate ? new Date(targetDate) : undefined,
+      },
+    });
+    res.status(201).json(goal);
+  })
+);
+
+router.patch(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const goal = await prisma.goal.findUnique({ where: { id: req.params.id } });
+    if (!goal || goal.userId !== req.user!.id) throw new ApiError(404, "Goal not found");
+
+    const updated = await prisma.goal.update({
+      where: { id: goal.id },
+      data: {
+        currentValue: req.body.currentValue ?? goal.currentValue,
+        status: req.body.status ?? goal.status,
+      },
+    });
+    res.json(updated);
+  })
+);
+
+router.delete(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const goal = await prisma.goal.findUnique({ where: { id: req.params.id } });
+    if (!goal || goal.userId !== req.user!.id) throw new ApiError(404, "Goal not found");
+    await prisma.goal.delete({ where: { id: goal.id } });
+    res.status(204).send();
+  })
+);
+
+export default router;
