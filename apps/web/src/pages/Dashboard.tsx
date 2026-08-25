@@ -15,6 +15,7 @@ import { Card, StatCard } from "../components/ui/Card";
 import { ProgressBar } from "../components/ui/ProgressBar";
 import { LoadingBlock, ErrorState } from "../components/ui/EmptyState";
 import { Link } from "react-router-dom";
+import { WeeklyCalorieBalance } from "../components/dashboard/WeeklyCalorieBalance";
 
 interface TodaySummary {
   date: string;
@@ -31,6 +32,9 @@ interface TodaySummary {
   cardioSessions: number;
   workoutSessions: number;
   calorieTarget: number | null;
+  recommendedDailyCalories: number | null;
+  goalPhase: "bulking" | "cutting" | "maintaining";
+  dailyKcalAdjustment: number;
   bmi: number | null;
   activeGoal: {
     startingValue: number;
@@ -104,21 +108,32 @@ export default function Dashboard() {
         <StatCard
           label="Calories consumed"
           value={`${Math.round(today.caloriesConsumed)}`}
-          sub={today.calorieTarget ? `of ${today.calorieTarget} target` : undefined}
+          sub={today.recommendedDailyCalories ? `of ${today.recommendedDailyCalories} target` : undefined}
         />
         <StatCard label="Calories burned" value={`${Math.round(today.caloriesBurned)} kcal`} accent="ink" />
         <StatCard label="BMI" value={today.bmi != null ? `${today.bmi}` : "—"} accent="ink" />
       </div>
 
+      <WeeklyCalorieBalance />
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Nutrition section */}
         <Card className="lg:col-span-2">
-          <h2 className="mb-4 font-semibold text-ink-900">Nutrition today</h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-semibold text-ink-900">Nutrition today</h2>
+            {today.goalPhase !== "maintaining" && today.dailyKcalAdjustment !== 0 && (
+              <span className="text-xs text-ink-500">
+                Maintenance {today.calorieTarget}{" "}
+                {today.dailyKcalAdjustment > 0 ? "+" : "−"} {Math.abs(today.dailyKcalAdjustment)} kcal (
+                {today.goalPhase})
+              </span>
+            )}
+          </div>
           <div className="space-y-4">
             <ProgressBar
               label="Calories"
               value={today.caloriesConsumed}
-              max={today.calorieTarget ?? 2200}
+              max={today.recommendedDailyCalories ?? today.calorieTarget ?? 2200}
             />
             <ProgressBar
               label="Protein (g)"

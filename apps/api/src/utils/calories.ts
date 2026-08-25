@@ -1,5 +1,15 @@
 // Shared calorie/energy calculations used by profile, cardio, and progress modules.
 
+// Widely-used approximation: ~7700 kcal of sustained deficit/surplus
+// corresponds to roughly 1 kg of body weight change. Used to translate a
+// weight goal into a weekly calorie deficit/surplus target.
+export const KCAL_PER_KG = 7700;
+
+// Default, safe weekly rate of change (kg/week) used when a goal has no
+// target date to derive a pace from — matches common healthy-weight-loss
+// guidance (0.5–1 kg/week).
+export const DEFAULT_WEEKLY_KG_RATE = 0.5;
+
 export type Sex = "MALE" | "FEMALE" | "OTHER";
 export type ActivityLevel = "SEDENTARY" | "LIGHT" | "MODERATE" | "ACTIVE" | "VERY_ACTIVE";
 

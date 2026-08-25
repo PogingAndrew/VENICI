@@ -3,7 +3,7 @@ import { api } from "../lib/apiClient";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { ProgressBar } from "../components/ui/ProgressBar";
-import { EmptyState, LoadingBlock } from "../components/ui/EmptyState";
+import { EmptyState, LoadingBlock, ErrorState } from "../components/ui/EmptyState";
 import { Modal } from "../components/ui/Modal";
 
 interface Goal {
@@ -25,27 +25,31 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function Goals() {
   const [goals, setGoals] = useState<Goal[] | null>(null);
+  const [currentWeightKg, setCurrentWeightKg] = useState<number | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [type, setType] = useState("WEIGHT_LOSS");
-  const [startingValue, setStartingValue] = useState("");
   const [targetValue, setTargetValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   function load() {
     api.get<Goal[]>("/goals").then(setGoals);
+    api.get<{ currentWeightKg: number | null }>("/profile").then((p) => setCurrentWeightKg(p.currentWeightKg));
   }
   useEffect(load, []);
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
-    await api.post("/goals", {
-      type,
-      startingValue: Number(startingValue),
-      targetValue: Number(targetValue),
-    });
-    setModalOpen(false);
-    setStartingValue("");
-    setTargetValue("");
-    load();
+    setError(null);
+    try {
+      // No "starting value" field — the backend uses the current logged
+      // weight as the starting point automatically.
+      await api.post("/goals", { type, targetValue: Number(targetValue) });
+      setModalOpen(false);
+      setTargetValue("");
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create goal");
+    }
   }
 
   async function updateCurrent(goal: Goal, value: number) {
@@ -123,6 +127,7 @@ export default function Goals() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Create a goal">
         <form onSubmit={handleCreate} className="space-y-4">
+          {error && <ErrorState message={error} />}
           <div>
             <label className="mb-1 block text-sm font-medium text-ink-700">Goal type</label>
             <select
@@ -137,33 +142,30 @@ export default function Goals() {
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-ink-700">Starting value</label>
-              <input
-                type="number"
-                step="0.1"
-                required
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                value={startingValue}
-                onChange={(e) => setStartingValue(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-ink-700">Target value</label>
-              <input
-                type="number"
-                step="0.1"
-                required
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                value={targetValue}
-                onChange={(e) => setTargetValue(e.target.value)}
-              />
-            </div>
+          <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-ink-700">
+            Starting point: <span className="font-semibold">
+              {currentWeightKg != null ? `${currentWeightKg} kg (your current weight)` : "no weight logged yet"}
+            </span>
           </div>
-          <Button type="submit" className="w-full">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink-700">Target value</label>
+            <input
+              type="number"
+              step="0.1"
+              required
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={targetValue}
+              onChange={(e) => setTargetValue(e.target.value)}
+            />
+          </div>
+          <Button type="submit" className="w-full" disabled={currentWeightKg == null}>
             Create goal
           </Button>
+          {currentWeightKg == null && (
+            <p className="text-xs text-ink-500">
+              Log a weight on your profile first so we have a starting point.
+            </p>
+          )}
         </form>
       </Modal>
     </div>

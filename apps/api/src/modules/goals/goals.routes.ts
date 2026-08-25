@@ -17,7 +17,6 @@ const createSchema = z.object({
       "WEIGHT_MAINTENANCE",
       "FITNESS_IMPROVEMENT",
     ]),
-    startingValue: z.number(),
     targetValue: z.number(),
     targetDate: z.string().datetime().optional(),
   }),
@@ -34,11 +33,27 @@ router.get(
   })
 );
 
+// No "starting value" input — the user's current logged weight IS the
+// starting point, fetched server-side so it can't drift from what's
+// actually on their profile.
 router.post(
   "/",
   validate(createSchema),
   asyncHandler(async (req, res) => {
-    const { type, startingValue, targetValue, targetDate } = req.body;
+    const { type, targetValue, targetDate } = req.body;
+
+    const latestMeasurement = await prisma.bodyMeasurement.findFirst({
+      where: { userId: req.user!.id },
+      orderBy: { recordedAt: "desc" },
+    });
+    if (!latestMeasurement) {
+      throw new ApiError(
+        400,
+        "Log a current weight on your profile before creating a goal."
+      );
+    }
+
+    const startingValue = latestMeasurement.weightKg;
     const goal = await prisma.goal.create({
       data: {
         userId: req.user!.id,

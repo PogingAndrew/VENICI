@@ -21,9 +21,9 @@ export default function Sidebar() {
     <aside className="flex h-screen w-64 flex-col border-r border-slate-200 bg-white">
       <div className="flex items-center gap-2 px-6 py-6">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-lg font-bold text-white">
-          F
+          V
         </div>
-        <span className="text-lg font-bold text-ink-900">FitTrack</span>
+        <span className="text-lg font-bold text-ink-900">Venici</span>
       </div>
 
       <nav className="flex-1 space-y-1 px-3">

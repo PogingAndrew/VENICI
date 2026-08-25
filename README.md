@@ -1,18 +1,52 @@
-# FitTrack — Integrated Fitness & Nutrition Tracking System
+# Venici — Fitness & Nutrition Tracking System
 
 ## Updates since initial scaffold
 
-- **Personal food library.** Any user can add their own custom foods
-  (calories, protein, carbs, fat, fiber) via **Nutrition → My food library**.
-  These are private to that user and show a "Personal" badge when searched
-  while logging a meal. The shared, admin-managed database still works
-  exactly as before — `Food.createdByUserId` is `null` for those entries.
-- **Richer onboarding.** Registration is now two steps: account details,
-  then a fitness profile — date of birth (age is derived from this and
-  stays accurate over time instead of going stale), sex, height, activity
-  level, current weight, and goal weight. This automatically creates the
-  first body-weight measurement and an active goal, and unlocks BMI +
-  daily calorie target on the Dashboard and Profile pages.
+- **Renamed to Venici.** All user-facing "FitTrack" branding (sidebar,
+  login/register, admin panel, browser tab title) is now "Venici." Internal
+  package names (`fitness-tracker-api`, `fitness-tracker-web`) and seed
+  email addresses (`demo@fittrack.dev`, `admin@fittrack.dev`) were left
+  unchanged since renaming those requires a re-seed and isn't user-facing —
+  say the word if you'd like those updated too.
+- **Goal creation no longer asks for a starting value (bug fix + UX).**
+  You already have a current weight on your profile — that's the starting
+  point. `POST /api/goals` now fetches your latest logged weight
+  server-side and uses it automatically; the "Create a goal" modal shows it
+  as read-only context instead of asking you to re-type it. If you haven't
+  logged a weight yet, goal creation is blocked with a clear message
+  telling you to do that first.
+- **Phantom weekly deficit fixed.** The Weekly Calorie Balance widget was
+  treating any day with nothing logged as "ate zero calories that day,"
+  which silently inflated the "so far this week" deficit purely from days
+  you hadn't opened the app — not anything you actually did. Fixed:
+  `computeDaySummary` now returns `hasLoggedData` (true if there's a meal,
+  workout, cardio session, or wearable sync that day), and
+  `computeWeekToDate` only counts maintenance calories, consumed, and
+  burned for days where that's true. The card now shows "0 kcal · nothing
+  logged yet this week" until you actually log something, instead of a
+  large number that isn't real. See `trackedDaysElapsed` in
+  `progress.service.ts` / `progress.routes.ts`.
+- **Non-weight goals no longer corrupt calorie math.** Goals can be
+  `WEIGHT_LOSS`/`WEIGHT_GAIN`/`WEIGHT_MAINTENANCE` or
+  `FITNESS_IMPROVEMENT` (an arbitrary numeric target). The dashboard's
+  "latest active goal" lookup now filters to `WEIGHT_GOAL_TYPES` only, so a
+  Fitness Improvement goal's `targetValue` can never get treated as a
+  target body weight.
+- **Bulking/cutting-aware calorie math.** Target weight above current =
+  **bulking** (needs a surplus); below = **cutting** (needs a deficit).
+  `computeGoalCalorieAdjustment()` derives this plus a daily calorie
+  adjustment, feeding both `/progress/today` (→
+  `recommendedDailyCalories`, used by the Dashboard's calorie target and
+  nutrition bar instead of raw maintenance) and `/progress/weekly-balance`
+  (weekly tracking with a Bulking/Cutting/Maintaining badge).
+- **Personal food library.** Any user can add their own custom foods via
+  **Nutrition → My food library**, private to them and shown with a
+  "Personal" badge when searched while logging a meal.
+- **Richer onboarding.** Two-step registration: account details, then a
+  fitness profile — date of birth (age derives from this so it never goes
+  stale), sex, height, activity level, current weight, and goal weight —
+  automatically creating the first body-weight measurement and an active
+  goal.
 
 **This changed the database schema** (`Profile.age` → `Profile.dateOfBirth`,
 new `Food.createdByUserId`). If you already ran migrations against an

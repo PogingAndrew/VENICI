@@ -11,7 +11,7 @@ export default function AdminLayout() {
   return (
     <div className="flex min-h-screen bg-slate-50">
       <aside className="w-64 border-r border-slate-200 bg-ink-900 text-white">
-        <div className="px-6 py-6 text-lg font-bold">FitTrack Admin</div>
+        <div className="px-6 py-6 text-lg font-bold">Venici Admin</div>
         <nav className="space-y-1 px-3">
           {ADMIN_NAV.map((item) => (
             <NavLink
