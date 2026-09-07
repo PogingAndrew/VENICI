@@ -19,7 +19,7 @@ export default function AdminLayout() {
               to={item.to}
               className={({ isActive }) =>
                 `block rounded-xl px-3 py-2.5 text-sm font-medium ${
-                  isActive ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/5"
+                  isActive ? "bg-brand-500/20 text-brand-300" : "text-white/70 hover:bg-white/5"
                 }`
               }
             >

@@ -25,9 +25,9 @@ export function RouteMap({ points }: { points: LatLng[] }) {
         attribution='&copy; OpenStreetMap contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {points.length > 1 && <Polyline positions={points} color="#0ea36e" weight={5} opacity={0.9} />}
+      {points.length > 1 && <Polyline positions={points} color="#ea580c" weight={5} opacity={0.9} />}
       {points.length > 0 && (
-        <CircleMarker center={points[points.length - 1]} radius={7} pathOptions={{ color: "#0ea36e", fillColor: "#16c98a", fillOpacity: 1 }} />
+        <CircleMarker center={points[points.length - 1]} radius={7} pathOptions={{ color: "#ea580c", fillColor: "#f97316", fillOpacity: 1 }} />
       )}
       <AutoPan target={points.length > 0 ? points[points.length - 1] : null} />
     </MapContainer>

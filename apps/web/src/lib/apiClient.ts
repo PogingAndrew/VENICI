@@ -1,7 +1,13 @@
 // Thin fetch wrapper: sends the httpOnly auth cookie automatically,
 // transparently retries once via /auth/refresh on a 401, and throws a
 // normalized Error with the server's message for callers to catch.
-const BASE = "/api";
+//
+// In local dev, requests go to the relative "/api" path, which Vite proxies
+// to the local API server (see vite.config.ts). In a static deployment
+// (e.g. GitHub Pages) there's no proxy, so VITE_API_URL must point at the
+// deployed backend — set it at build time, e.g. VITE_API_URL=https://your-api.onrender.com
+const API_ORIGIN = import.meta.env.VITE_API_URL?.replace(/\/$/, "") ?? "";
+const BASE = `${API_ORIGIN}/api`;
 
 class ApiClientError extends Error {
   status: number;

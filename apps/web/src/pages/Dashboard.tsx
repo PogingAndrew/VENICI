@@ -16,6 +16,7 @@ import { ProgressBar } from "../components/ui/ProgressBar";
 import { LoadingBlock, ErrorState } from "../components/ui/EmptyState";
 import { Link } from "react-router-dom";
 import { WeeklyCalorieBalance } from "../components/dashboard/WeeklyCalorieBalance";
+import { RankingsSummary } from "../components/dashboard/RankingsSummary";
 
 interface TodaySummary {
   date: string;
@@ -116,6 +117,8 @@ export default function Dashboard() {
 
       <WeeklyCalorieBalance />
 
+      <RankingsSummary />
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Nutrition section */}
         <Card className="lg:col-span-2">
@@ -203,15 +206,15 @@ export default function Dashboard() {
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="weightGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#16c98a" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#16c98a" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#f97316" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#eef2f6" />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} domain={["dataMin - 2", "dataMax + 2"]} />
                 <Tooltip />
-                <Area type="monotone" dataKey="weight" stroke="#0ea36e" fill="url(#weightGrad)" strokeWidth={2} />
+                <Area type="monotone" dataKey="weight" stroke="#ea580c" fill="url(#weightGrad)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
@@ -227,8 +230,8 @@ export default function Dashboard() {
               <XAxis dataKey="date" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
-              <Bar dataKey="calories" fill="#16c98a" radius={[4, 4, 0, 0]} name="Consumed" />
-              <Bar dataKey="burned" fill="#26313d" radius={[4, 4, 0, 0]} name="Burned" />
+              <Bar dataKey="calories" fill="#f97316" radius={[4, 4, 0, 0]} name="Consumed" />
+              <Bar dataKey="burned" fill="#262626" radius={[4, 4, 0, 0]} name="Burned" />
             </BarChart>
           </ResponsiveContainer>
         </Card>

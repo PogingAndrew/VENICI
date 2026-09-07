@@ -37,6 +37,7 @@ export default function AdminFoods() {
       carbsG: Number(form.carbsG),
       fatG: Number(form.fatG),
       fiberG: Number(form.fiberG),
+      shared: true,
     });
     setForm(EMPTY);
     load(query);

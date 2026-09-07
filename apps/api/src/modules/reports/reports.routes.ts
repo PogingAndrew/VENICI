@@ -41,8 +41,9 @@ router.post(
       orderBy: { date: "asc" },
     });
 
-    const workouts = await prisma.workout.count({
+    const workouts = await prisma.workout.findMany({
       where: { userId: req.user!.id, performedAt: { gte: periodStart, lte: periodEnd } },
+      select: { totalVolumeKg: true },
     });
     const cardioActivities = await prisma.cardioActivity.findMany({
       where: {
@@ -60,7 +61,8 @@ router.post(
         weights.length >= 2 ? Number((weights[weights.length - 1] - weights[0]).toFixed(1)) : null,
       avgCaloriesConsumed: Math.round(snapshots.reduce((s, x) => s + x.caloriesConsumed, 0) / n),
       avgProteinG: Math.round(snapshots.reduce((s, x) => s + x.proteinG, 0) / n),
-      totalWorkouts: workouts,
+      totalWorkouts: workouts.length,
+      totalWeightLiftedKg: Math.round(workouts.reduce((s, w) => s + w.totalVolumeKg, 0)),
       totalCardioSessions: cardioActivities.length,
       totalCardioDistanceKm: Number(
         (cardioActivities.reduce((s, c) => s + c.distanceMeters, 0) / 1000).toFixed(2)

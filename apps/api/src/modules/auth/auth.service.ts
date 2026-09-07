@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../../lib/prisma";
 import { env } from "../../config/env";
 import { ApiError } from "../../middleware/errorHandler";
+import { generateUniqueUsername } from "../../utils/username";
 import {
   signAccessToken,
   signRefreshToken,
@@ -34,6 +35,7 @@ export async function registerUser(input: RegisterInput) {
   if (existing) throw new ApiError(409, "An account with this email already exists");
 
   const passwordHash = await bcrypt.hash(input.password, 12);
+  const username = await generateUniqueUsername(input.name || input.email.split("@")[0]);
 
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
@@ -43,6 +45,7 @@ export async function registerUser(input: RegisterInput) {
         profile: {
           create: {
             name: input.name,
+            username,
             dateOfBirth: new Date(input.dateOfBirth),
             sex: input.sex,
             heightCm: input.heightCm,

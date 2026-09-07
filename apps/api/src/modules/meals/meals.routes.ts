@@ -52,7 +52,11 @@ const addItemSchema = z.object({
   body: z.object({
     mealType: z.enum(["BREAKFAST", "LUNCH", "DINNER", "SNACK"]),
     foodId: z.string(),
-    quantity: z.number().positive().default(1),
+    quantity: z.number().positive().optional(),
+    // Alternative to quantity for gram-based foods — converted to a
+    // quantity multiplier server-side via the food's gramsPerServing, so
+    // the exact same MealItem.quantity mechanism keeps working either way.
+    grams: z.number().positive().optional(),
     date: z.string().datetime().optional(),
   }),
 });
@@ -63,8 +67,21 @@ router.post(
   "/items",
   validate(addItemSchema),
   asyncHandler(async (req, res) => {
-    const { mealType, foodId, quantity, date } = req.body;
+    const { mealType, foodId, quantity, grams, date } = req.body;
     const { start, end } = dayRange(date);
+
+    let resolvedQuantity = quantity ?? 1;
+    if (grams != null) {
+      const food = await prisma.food.findUnique({ where: { id: foodId } });
+      if (!food) throw new ApiError(404, "Food not found");
+      if (!food.gramsPerServing) {
+        throw new ApiError(
+          400,
+          "This food doesn't have a gram-based serving size, so a custom gram amount can't be calculated."
+        );
+      }
+      resolvedQuantity = grams / food.gramsPerServing;
+    }
 
     let meal = await prisma.meal.findFirst({
       where: {
@@ -80,7 +97,7 @@ router.post(
     }
 
     const item = await prisma.mealItem.create({
-      data: { mealId: meal.id, foodId, quantity },
+      data: { mealId: meal.id, foodId, quantity: resolvedQuantity },
       include: { food: true },
     });
     res.status(201).json(item);

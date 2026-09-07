@@ -111,6 +111,15 @@ model User {
   refreshTokens       RefreshToken[]
   customFoods         Food[]                    @relation("UserCustomFoods")
 
+  posts                   Post[]
+  likes                   Like[]
+  comments                Comment[]
+  following               Follow[]        @relation("Following")
+  followers               Follow[]        @relation("Followers")
+  sentFollowRequests      FollowRequest[] @relation("SentFollowRequests")
+  receivedFollowRequests  FollowRequest[] @relation("ReceivedFollowRequests")
+  sentMessages            Message[]       @relation("SentMessages")
+
   @@index([email])
 }
 
@@ -125,17 +134,43 @@ model RefreshToken {
   @@index([userId])
 }
 
+enum MessagingPrivacy {
+  EVERYONE
+  FOLLOWING // only people the profile owner already follows can message them
+  MUTUALS   // only people who follow each other can message
+  NO_ONE
+}
+
 model Profile {
-  id             String         @id @default(cuid())
-  userId         String         @unique
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String           @id @default(cuid())
+  userId         String           @unique
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   name           String
+  // Nullable rather than required so existing rows survive a migration
+  // without a manual backfill — auto-generated at registration for new
+  // accounts, editable afterward, enforced unique + case-sensitive.
+  username       String?          @unique
+  bio            String?
+  avatarUrl      String?
+  // Private accounts hide posts from non-approved followers. Basic profile
+  // info (name, bio, avatar, follower/following counts) stays visible to
+  // everyone regardless — only posts are gated.
+  isPrivate      Boolean          @default(false)
+  messagingPrivacy MessagingPrivacy @default(EVERYONE)
   dateOfBirth    DateTime?
   sex            Sex?
   heightCm       Float?
-  activityLevel  ActivityLevel  @default(MODERATE)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  activityLevel  ActivityLevel    @default(MODERATE)
+  // When this user last opened the notification bell — used as the
+  // baseline for "new posts by people you follow" notifications, so a
+  // brand-new account isn't flooded with every historical post the moment
+  // they follow someone. Defaults to now() so it starts at "nothing is new
+  // yet" rather than "everything since the epoch is new."
+  notificationsLastCheckedAt DateTime? @default(now())
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([username])
 }
 
 // ------------------------------------------------------------------
@@ -182,6 +217,12 @@ model Food {
   id              String   @id @default(cuid())
   name            String
   servingSize     String
+  // How many grams the stored nutrition values correspond to (e.g. 100 for
+  // "per 100g" foods). Nullable because not every food is gram-based (a
+  // food logged as "1 cup" or "1 medium" doesn't have a meaningful gram
+  // equivalent) — the custom-gram-amount input on the Nutrition page only
+  // appears when this is set.
+  gramsPerServing Float?
   calories        Float
   proteinG        Float
   carbsG          Float
@@ -247,6 +288,11 @@ model Workout {
   performedAt    DateTime @default(now())
   durationMin    Int?
   caloriesBurned Float?
+  // Cached sum of sets × reps × weight across every exercise in this
+  // workout (Hevy-style "total volume"), computed at creation. Cached
+  // rather than derived on every read so weekly/monthly report aggregation
+  // doesn't need to re-join and re-multiply WorkoutExercise rows.
+  totalVolumeKg  Float    @default(0)
   notes          String?
   createdAt      DateTime @default(now())
 
@@ -376,4 +422,128 @@ model Report {
   createdAt     DateTime @default(now())
 
   @@index([userId, periodStart])
+}
+
+// ------------------------------------------------------------------
+// SOCIAL: posts, follows, follow requests, messaging
+// ------------------------------------------------------------------
+
+model Post {
+  id        String   @id @default(cuid())
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  likes            Like[]
+  comments         Comment[]
+  sharedInMessages Message[]
+
+  @@index([authorId, createdAt])
+}
+
+// One like per (post, user) — enforced by the unique constraint, so the
+// "toggle like" endpoint can just check existence rather than needing a
+// separate "already liked" query.
+model Like {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([postId, createdAt])
+}
+
+// An established follow relationship. For a private account, this row is
+// only created once the target approves a FollowRequest; for a public
+// account it's created directly.
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  follower    User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+enum FollowRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Only created when following a private account. Approving one creates the
+// corresponding Follow row; rejecting just marks the request REJECTED so it
+// isn't re-shown as pending (the requester can request again later).
+model FollowRequest {
+  id          String              @id @default(cuid())
+  requesterId String
+  requester   User                @relation("SentFollowRequests", fields: [requesterId], references: [id], onDelete: Cascade)
+  targetId    String
+  target      User                @relation("ReceivedFollowRequests", fields: [targetId], references: [id], onDelete: Cascade)
+  status      FollowRequestStatus @default(PENDING)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([requesterId, targetId])
+  @@index([targetId, status])
+}
+
+// One conversation per unique pair of users. userAId/userBId are always
+// stored with the lexicographically smaller user id first, so a lookup for
+// "the conversation between X and Y" is deterministic regardless of who
+// started it or who's asking.
+model Conversation {
+  id        String    @id @default(cuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime  @default(now())
+  // When each participant last opened this conversation (set whenever they
+  // fetch its messages). Null = never opened, meaning every message from
+  // the other person is unread. Used to compute unread-message
+  // notifications without a separate per-message read table.
+  lastReadByA DateTime?
+  lastReadByB DateTime?
+  messages  Message[]
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  content        String
+  // Set when this message is a "share" of a post — the client renders a
+  // mini post-card in the bubble instead of (or alongside) plain text.
+  sharedPostId   String?
+  sharedPost     Post?        @relation(fields: [sharedPostId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
 }

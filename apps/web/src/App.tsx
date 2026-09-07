@@ -14,6 +14,11 @@ import Cardio from "./pages/Cardio";
 import CardioLive from "./pages/CardioLive";
 import Wearables from "./pages/Wearables";
 import Progress from "./pages/Progress";
+import Leaderboards from "./pages/Leaderboards";
+import Feed from "./pages/Feed";
+import SearchUsers from "./pages/SearchUsers";
+import Messages from "./pages/Messages";
+import SocialProfile from "./pages/SocialProfile";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 
@@ -67,6 +72,12 @@ export default function App() {
         <Route path="/cardio" element={<Cardio />} />
         <Route path="/wearables" element={<Wearables />} />
         <Route path="/progress" element={<Progress />} />
+        <Route path="/leaderboards" element={<Leaderboards />} />
+        <Route path="/feed" element={<Feed />} />
+        <Route path="/search" element={<SearchUsers />} />
+        <Route path="/messages" element={<Messages />} />
+        <Route path="/messages/:conversationId" element={<Messages />} />
+        <Route path="/u/:userId" element={<SocialProfile />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />
       </Route>

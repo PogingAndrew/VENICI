@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../../middleware/asyncHandler";
 import { prisma } from "../../lib/prisma";
+import { env } from "../../config/env";
 import {
   loginUser,
   registerUser,
@@ -10,8 +11,8 @@ import {
 
 const COOKIE_OPTS = {
   httpOnly: true,
-  sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
+  sameSite: env.cookieSameSite,
+  secure: env.cookieSameSite === "none" || process.env.NODE_ENV === "production",
 };
 
 function setSessionCookies(res: Response, accessToken: string, refreshToken: string) {

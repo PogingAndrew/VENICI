@@ -5,6 +5,7 @@ import { Button } from "../components/ui/Button";
 import { ProgressBar } from "../components/ui/ProgressBar";
 import { EmptyState, LoadingBlock, ErrorState } from "../components/ui/EmptyState";
 import { Modal } from "../components/ui/Modal";
+import { WEIGHT_GOAL_TYPES } from "../lib/goalTypes";
 
 interface Goal {
   id: string;
@@ -26,29 +27,57 @@ const TYPE_LABELS: Record<string, string> = {
 export default function Goals() {
   const [goals, setGoals] = useState<Goal[] | null>(null);
   const [currentWeightKg, setCurrentWeightKg] = useState<number | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
+
+  const [createOpen, setCreateOpen] = useState(false);
   const [type, setType] = useState("WEIGHT_LOSS");
   const [targetValue, setTargetValue] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const [editGoal, setEditGoal] = useState<Goal | null>(null);
+  const [editTargetValue, setEditTargetValue] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const [weightPrompt, setWeightPrompt] = useState<Goal | null>(null);
 
   function load() {
     api.get<Goal[]>("/goals").then(setGoals);
-    api.get<{ currentWeightKg: number | null }>("/profile").then((p) => setCurrentWeightKg(p.currentWeightKg));
+    api
+      .get<{ currentWeightKg: number | null }>("/profile")
+      .then((p) => setCurrentWeightKg(p.currentWeightKg));
   }
   useEffect(load, []);
 
+  const hasActiveGoal = goals?.some((g) => g.status === "ACTIVE") ?? false;
+
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
-    setError(null);
+    setCreateError(null);
     try {
-      // No "starting value" field — the backend uses the current logged
-      // weight as the starting point automatically.
       await api.post("/goals", { type, targetValue: Number(targetValue) });
-      setModalOpen(false);
+      setCreateOpen(false);
       setTargetValue("");
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create goal");
+      setCreateError(err instanceof Error ? err.message : "Could not create goal");
+    }
+  }
+
+  function openEdit(goal: Goal) {
+    setEditGoal(goal);
+    setEditTargetValue(String(goal.targetValue));
+    setEditError(null);
+  }
+
+  async function handleEditSave(e: FormEvent) {
+    e.preventDefault();
+    if (!editGoal) return;
+    setEditError(null);
+    try {
+      await api.patch(`/goals/${editGoal.id}`, { targetValue: Number(editTargetValue) });
+      setEditGoal(null);
+      load();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Could not update goal");
     }
   }
 
@@ -57,8 +86,30 @@ export default function Goals() {
     load();
   }
 
-  async function markStatus(goal: Goal, status: string) {
-    await api.patch(`/goals/${goal.id}`, { status });
+  // Marking a weight-type goal complete offers to log the target weight as
+  // the new current weight, rather than silently leaving it stale.
+  async function markComplete(goal: Goal) {
+    if (WEIGHT_GOAL_TYPES.includes(goal.type)) {
+      setWeightPrompt(goal);
+    } else {
+      await api.patch(`/goals/${goal.id}`, { status: "COMPLETED" });
+      load();
+    }
+  }
+
+  async function confirmCompleteWithWeightSync(sync: boolean) {
+    if (!weightPrompt) return;
+    await api.patch(`/goals/${weightPrompt.id}`, {
+      status: "COMPLETED",
+      syncCurrentWeight: sync,
+    });
+    setWeightPrompt(null);
+    load();
+  }
+
+  async function removeGoal(goal: Goal) {
+    if (!confirm(`Delete this ${TYPE_LABELS[goal.type].toLowerCase()} goal? This can't be undone.`)) return;
+    await api.delete(`/goals/${goal.id}`);
     load();
   }
 
@@ -71,8 +122,18 @@ export default function Goals() {
           <h1 className="text-2xl font-bold text-ink-900">Goals</h1>
           <p className="text-sm text-ink-500">Set a target and track your progress toward it.</p>
         </div>
-        <Button onClick={() => setModalOpen(true)}>+ New goal</Button>
+        <Button onClick={() => setCreateOpen(true)} disabled={hasActiveGoal} title={
+          hasActiveGoal ? "Complete, delete, or update your active goal before creating a new one" : undefined
+        }>
+          + New goal
+        </Button>
       </div>
+
+      {hasActiveGoal && (
+        <p className="text-xs text-ink-500">
+          Only one active goal at a time — complete, delete, or edit your current one to start a new one.
+        </p>
+      )}
 
       {goals.length === 0 ? (
         <EmptyState title="No goals yet" hint="Create a weight or fitness goal to start tracking progress." />
@@ -110,14 +171,21 @@ export default function Goals() {
                     className="w-24 rounded-lg border border-slate-200 px-2 py-1 text-sm"
                   />
                   <span className="text-xs text-ink-500">current value</span>
+                </div>
+                <div className="mt-3 flex items-center gap-3 border-t border-slate-100 pt-3 text-xs font-semibold">
                   {goal.status === "ACTIVE" && (
-                    <button
-                      onClick={() => markStatus(goal, "COMPLETED")}
-                      className="ml-auto text-xs font-semibold text-brand-700"
-                    >
-                      Mark complete
-                    </button>
+                    <>
+                      <button onClick={() => markComplete(goal)} className="text-brand-700">
+                        Mark complete
+                      </button>
+                      <button onClick={() => openEdit(goal)} className="text-ink-500">
+                        Edit
+                      </button>
+                    </>
                   )}
+                  <button onClick={() => removeGoal(goal)} className="ml-auto text-red-500">
+                    Delete
+                  </button>
                 </div>
               </Card>
             );
@@ -125,9 +193,10 @@ export default function Goals() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Create a goal">
+      {/* Create goal */}
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create a goal">
         <form onSubmit={handleCreate} className="space-y-4">
-          {error && <ErrorState message={error} />}
+          {createError && <ErrorState message={createError} />}
           <div>
             <label className="mb-1 block text-sm font-medium text-ink-700">Goal type</label>
             <select
@@ -143,7 +212,8 @@ export default function Goals() {
             </select>
           </div>
           <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-ink-700">
-            Starting point: <span className="font-semibold">
+            Starting point:{" "}
+            <span className="font-semibold">
               {currentWeightKg != null ? `${currentWeightKg} kg (your current weight)` : "no weight logged yet"}
             </span>
           </div>
@@ -167,6 +237,47 @@ export default function Goals() {
             </p>
           )}
         </form>
+      </Modal>
+
+      {/* Edit goal */}
+      <Modal open={editGoal != null} onClose={() => setEditGoal(null)} title="Edit goal">
+        <form onSubmit={handleEditSave} className="space-y-4">
+          {editError && <ErrorState message={editError} />}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink-700">Target value</label>
+            <input
+              type="number"
+              step="0.1"
+              required
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={editTargetValue}
+              onChange={(e) => setEditTargetValue(e.target.value)}
+            />
+          </div>
+          <Button type="submit" className="w-full">
+            Save changes
+          </Button>
+        </form>
+      </Modal>
+
+      {/* Weight-sync prompt on completing a weight-type goal */}
+      <Modal
+        open={weightPrompt != null}
+        onClose={() => confirmCompleteWithWeightSync(false)}
+        title="Goal completed 🎉"
+      >
+        <p className="mb-4 text-sm text-ink-700">
+          Update your current weight to{" "}
+          <span className="font-semibold">{weightPrompt?.targetValue} kg</span> to match this goal?
+        </p>
+        <div className="flex gap-3">
+          <Button variant="secondary" className="flex-1" onClick={() => confirmCompleteWithWeightSync(false)}>
+            No, keep as is
+          </Button>
+          <Button className="flex-1" onClick={() => confirmCompleteWithWeightSync(true)}>
+            Yes, update weight
+          </Button>
+        </div>
       </Modal>
     </div>
   );

@@ -13,6 +13,7 @@ const foodSchema = z.object({
   body: z.object({
     name: z.string().min(1),
     servingSize: z.string().min(1),
+    gramsPerServing: z.number().positive().optional(),
     calories: z.number().nonnegative(),
     proteinG: z.number().nonnegative(),
     carbsG: z.number().nonnegative().default(0),
@@ -46,18 +47,21 @@ router.get(
   })
 );
 
-// Any authenticated user can add to their own personal library. Admins
-// creating from the admin panel add to the shared library instead
-// (createdByUserId stays null) unless they explicitly pass personal:true.
+// Any authenticated user can add to their own personal library — this is
+// the default and ALWAYS what happens regardless of role, so an admin using
+// the personal "My food library" form on the Nutrition page gets a personal
+// food like anyone else. Only the dedicated Admin Panel food form should
+// create a shared library entry, and only by explicitly passing
+// shared:true (silently ignored for non-admins).
 router.post(
   "/",
   validate(foodSchema),
   asyncHandler(async (req, res) => {
-    const isAdminSharedEntry = req.user!.role === "ADMIN" && req.body.personal !== true;
+    const wantsShared = req.body.shared === true && req.user!.role === "ADMIN";
     const food = await prisma.food.create({
       data: {
         ...req.body,
-        createdByUserId: isAdminSharedEntry ? null : req.user!.id,
+        createdByUserId: wantsShared ? null : req.user!.id,
       },
     });
     res.status(201).json({ ...food, isCustom: food.createdByUserId != null });

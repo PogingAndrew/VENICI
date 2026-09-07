@@ -69,7 +69,7 @@ export default function Progress() {
             <XAxis dataKey="date" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} domain={["dataMin - 2", "dataMax + 2"]} />
             <Tooltip />
-            <Area type="monotone" dataKey="weight" stroke="#0ea36e" fill="#d7fcea" strokeWidth={2} />
+            <Area type="monotone" dataKey="weight" stroke="#ea580c" fill="#ffedd5" strokeWidth={2} />
           </AreaChart>
         </ChartCard>
 
@@ -79,8 +79,8 @@ export default function Progress() {
             <XAxis dataKey="date" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} />
             <Tooltip />
-            <Bar dataKey="consumed" fill="#16c98a" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="burned" fill="#26313d" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="consumed" fill="#f97316" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="burned" fill="#262626" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ChartCard>
 
@@ -90,7 +90,7 @@ export default function Progress() {
             <XAxis dataKey="date" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} />
             <Tooltip />
-            <Line type="monotone" dataKey="cardioKm" stroke="#0ea36e" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="cardioKm" stroke="#ea580c" strokeWidth={2} dot={false} />
           </LineChart>
         </ChartCard>
 
@@ -100,7 +100,7 @@ export default function Progress() {
             <XAxis dataKey="date" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} />
             <Tooltip />
-            <Bar dataKey="workoutMinutes" fill="#5b6b7a" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="workoutMinutes" fill="#6b7280" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ChartCard>
       </div>

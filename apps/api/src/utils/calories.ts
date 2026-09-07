@@ -60,6 +60,53 @@ export function calculateTDEE(bmr: number, activityLevel: ActivityLevel): number
   return Math.round(bmr * ACTIVITY_MULTIPLIERS[activityLevel]);
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+// Resistance-training MET (metabolic equivalent) by effort level, from the
+// Compendium of Physical Activities. Chosen by how much weight the person
+// moved per minute relative to their own bodyweight — moving a lot of
+// weight quickly (short rest, big lifts) is vigorous; low volume per minute
+// (long rests, light weight) is light effort.
+const RESISTANCE_MET = { light: 3.5, moderate: 5.0, vigorous: 6.0 };
+
+// Estimates calories burned for a strength workout from session duration,
+// total volume lifted (sum of sets × reps × weight across all exercises),
+// and the person's weight/age/sex/height — improvising on the standard MET
+// formula (kcal = MET × weight(kg) × hours) in two ways:
+//  1. MET itself is chosen dynamically from lifting intensity (volume per
+//     minute per kg of bodyweight) instead of a single fixed number, so a
+//     dense, heavy session reads as more vigorous than a light one of the
+//     same duration.
+//  2. The result is scaled by the ratio of the person's own BMR to a
+//     generic "1 MET ≈ 1 kcal/kg/hour" baseline, which is how age, sex,
+//     and height feed in — an individual with a higher BMR for their
+//     weight (e.g. younger) burns modestly more for the same effort.
+export function estimateWorkoutCalories(opts: {
+  durationMin: number;
+  totalVolumeKg: number;
+  weightKg: number;
+  age: number;
+  sex: Sex | null | undefined;
+  heightCm: number;
+}): number {
+  const { durationMin, totalVolumeKg, weightKg, age, sex, heightCm } = opts;
+  if (durationMin <= 0 || weightKg <= 0) return 0;
+
+  const volumePerMinutePerKgBodyweight = totalVolumeKg / durationMin / weightKg;
+  let met = RESISTANCE_MET.light;
+  if (volumePerMinutePerKgBodyweight > 0.35) met = RESISTANCE_MET.vigorous;
+  else if (volumePerMinutePerKgBodyweight > 0.15) met = RESISTANCE_MET.moderate;
+
+  const bmr = calculateBMR({ sex, weightKg, heightCm, age });
+  const standardHourlyBurn = weightKg * 1.0; // the "1 kcal/kg/hour" baseline that defines 1 MET
+  const individualAdjustment = clamp(bmr / 24 / standardHourlyBurn, 0.85, 1.15);
+
+  const hours = durationMin / 60;
+  return Math.round(met * weightKg * hours * individualAdjustment);
+}
+
 // Rough MET-based estimate for cardio calories burned, used as a fallback
 // when a wearable isn't providing a direct measurement.
 const MET_BY_ACTIVITY: Record<string, number> = {

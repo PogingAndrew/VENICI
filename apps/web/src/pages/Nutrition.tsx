@@ -9,6 +9,7 @@ interface Food {
   id: string;
   name: string;
   servingSize: string;
+  gramsPerServing?: number | null;
   calories: number;
   proteinG: number;
   carbsG: number;
@@ -43,12 +44,15 @@ export default function Nutrition() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Food[]>([]);
   const [addingTo, setAddingTo] = useState<Meal["type"] | null>(null);
+  const [selectedFood, setSelectedFood] = useState<Food | null>(null);
+  const [gramsInput, setGramsInput] = useState("");
 
   const [myFoods, setMyFoods] = useState<Food[] | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [newFood, setNewFood] = useState({
     name: "",
     servingSize: "",
+    gramsPerServing: "",
     calories: "",
     proteinG: "",
     carbsG: "",
@@ -90,6 +94,30 @@ export default function Nutrition() {
     load();
   }
 
+  // Gram-based foods get an amount-entry step instead of adding immediately
+  // at the default serving — see the "custom gram amount" requirement.
+  function selectFood(food: Food) {
+    if (food.gramsPerServing) {
+      setSelectedFood(food);
+      setGramsInput(String(food.gramsPerServing));
+    } else {
+      addFood(food);
+    }
+  }
+
+  async function confirmAddWithGrams() {
+    if (!addingTo || !selectedFood) return;
+    const grams = Number(gramsInput);
+    if (!grams || grams <= 0) return;
+    await api.post("/meals/items", { mealType: addingTo, foodId: selectedFood.id, grams });
+    setSelectedFood(null);
+    setGramsInput("");
+    setQuery("");
+    setResults([]);
+    setAddingTo(null);
+    load();
+  }
+
   async function updateQty(item: MealItem, quantity: number) {
     if (quantity <= 0) return;
     await api.patch(`/meals/items/${item.id}`, { quantity });
@@ -106,13 +134,23 @@ export default function Nutrition() {
     await api.post("/foods", {
       name: newFood.name,
       servingSize: newFood.servingSize,
+      gramsPerServing: newFood.gramsPerServing ? Number(newFood.gramsPerServing) : undefined,
       calories: Number(newFood.calories),
       proteinG: Number(newFood.proteinG),
       carbsG: newFood.carbsG ? Number(newFood.carbsG) : 0,
       fatG: Number(newFood.fatG),
       fiberG: Number(newFood.fiberG),
     });
-    setNewFood({ name: "", servingSize: "", calories: "", proteinG: "", carbsG: "", fatG: "", fiberG: "" });
+    setNewFood({
+      name: "",
+      servingSize: "",
+      gramsPerServing: "",
+      calories: "",
+      proteinG: "",
+      carbsG: "",
+      fatG: "",
+      fiberG: "",
+    });
     setLibraryOpen(false);
     loadMyFoods();
   }
@@ -235,46 +273,61 @@ export default function Nutrition() {
 
               {addingTo === type && (
                 <div className="mt-3 rounded-lg border border-slate-200 p-3">
-                  <input
-                    autoFocus
-                    placeholder="Search foods…"
-                    className="mb-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                  />
-                  {results.length > 0 && (
-                    <div className="max-h-56 space-y-1 overflow-y-auto">
-                      {results.map((food) => (
-                        <button
-                          key={food.id}
-                          onClick={() => addFood(food)}
-                          className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50"
-                        >
-                          <span>
-                            {food.name}
-                            {food.isCustom && (
-                              <span className="ml-2 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-700">
-                                Personal
+                  {selectedFood ? (
+                    <GramAmountPicker
+                      food={selectedFood}
+                      grams={gramsInput}
+                      onGramsChange={setGramsInput}
+                      onCancel={() => {
+                        setSelectedFood(null);
+                        setGramsInput("");
+                      }}
+                      onConfirm={confirmAddWithGrams}
+                    />
+                  ) : (
+                    <>
+                      <input
+                        autoFocus
+                        placeholder="Search foods…"
+                        className="mb-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                      />
+                      {results.length > 0 && (
+                        <div className="max-h-56 space-y-1 overflow-y-auto">
+                          {results.map((food) => (
+                            <button
+                              key={food.id}
+                              onClick={() => selectFood(food)}
+                              className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-sm hover:bg-slate-50"
+                            >
+                              <span>
+                                {food.name}
+                                {food.isCustom && (
+                                  <span className="ml-2 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-700">
+                                    Personal
+                                  </span>
+                                )}
                               </span>
-                            )}
-                          </span>
-                          <span className="text-xs text-ink-500">
-                            {food.calories} kcal / {food.servingSize}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
+                              <span className="text-xs text-ink-500">
+                                {food.calories} kcal / {food.servingSize}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <button
+                        onClick={() => {
+                          setAddingTo(null);
+                          setQuery("");
+                          setResults([]);
+                        }}
+                        className="mt-2 text-xs text-ink-500"
+                      >
+                        Cancel
+                      </button>
+                    </>
                   )}
-                  <button
-                    onClick={() => {
-                      setAddingTo(null);
-                      setQuery("");
-                      setResults([]);
-                    }}
-                    className="mt-2 text-xs text-ink-500"
-                  >
-                    Cancel
-                  </button>
                 </div>
               )}
             </Card>
@@ -298,6 +351,19 @@ export default function Nutrition() {
             value={newFood.servingSize}
             onChange={(e) => setNewFood({ ...newFood, servingSize: e.target.value })}
           />
+          <div>
+            <input
+              type="number"
+              placeholder="Grams per serving (optional — enables custom gram amounts)"
+              className="input"
+              value={newFood.gramsPerServing}
+              onChange={(e) => setNewFood({ ...newFood, gramsPerServing: e.target.value })}
+            />
+            <p className="mt-1 text-xs text-ink-500">
+              Only fill this in if the serving size above is a gram weight (e.g. "100 g") — it lets you
+              log any custom amount later instead of just whole servings.
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <input
               required
@@ -354,6 +420,70 @@ function Stat({ label, value }: { label: string; value: string | number }) {
     <div>
       <p className="text-xs text-ink-500">{label}</p>
       <p className="text-lg font-bold text-ink-900">{value}</p>
+    </div>
+  );
+}
+
+// Lets the user enter a custom gram amount for a food logged "per Xg" and
+// see the scaled nutrition live before confirming — nutrient_for_amount =
+// nutrient_per_serving × (grams / gramsPerServing).
+function GramAmountPicker({
+  food,
+  grams,
+  onGramsChange,
+  onCancel,
+  onConfirm,
+}: {
+  food: Food;
+  grams: string;
+  onGramsChange: (v: string) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const gramsPerServing = food.gramsPerServing ?? 100;
+  const gramsNum = Number(grams) || 0;
+  const factor = gramsNum / gramsPerServing;
+
+  return (
+    <div>
+      <p className="mb-2 text-sm font-medium text-ink-900">{food.name}</p>
+      <p className="mb-2 text-xs text-ink-500">
+        Nutrition is stored per {gramsPerServing} g ({food.servingSize}). Enter how many grams you're
+        actually having.
+      </p>
+      <div className="mb-3 flex items-center gap-2">
+        <input
+          type="number"
+          autoFocus
+          min="1"
+          step="1"
+          className="w-28 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          value={grams}
+          onChange={(e) => onGramsChange(e.target.value)}
+        />
+        <span className="text-sm text-ink-500">grams</span>
+      </div>
+
+      <div className="mb-3 rounded-lg bg-slate-50 p-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">
+          Nutrition for {gramsNum || 0} g
+        </p>
+        <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+          <span>{Math.round(food.calories * factor)} kcal</span>
+          <span>{(food.proteinG * factor).toFixed(1)} g protein</span>
+          <span>{(food.carbsG * factor).toFixed(1)} g carbs</span>
+          <span>{(food.fatG * factor).toFixed(1)} g fat</span>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Button variant="secondary" onClick={onCancel} className="flex-1">
+          Back
+        </Button>
+        <Button onClick={onConfirm} disabled={gramsNum <= 0} className="flex-1">
+          Add {gramsNum || 0} g
+        </Button>
+      </div>
     </div>
   );
 }

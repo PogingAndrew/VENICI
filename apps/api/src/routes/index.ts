@@ -12,6 +12,12 @@ import wearablesRoutes from "../modules/wearables/wearables.routes";
 import progressRoutes from "../modules/progress/progress.routes";
 import reportsRoutes from "../modules/reports/reports.routes";
 import adminRoutes from "../modules/admin/admin.routes";
+import leaderboardRoutes from "../modules/leaderboard/leaderboard.routes";
+import socialRoutes from "../modules/social/social.routes";
+import postsRoutes from "../modules/posts/posts.routes";
+import feedRoutes from "../modules/feed/feed.routes";
+import messagesRoutes from "../modules/messages/messages.routes";
+import notificationsRoutes from "../modules/notifications/notifications.routes";
 
 const router = Router();
 
@@ -28,5 +34,11 @@ router.use("/wearables", wearablesRoutes);
 router.use("/progress", progressRoutes);
 router.use("/reports", reportsRoutes);
 router.use("/admin", adminRoutes);
+router.use("/leaderboard", leaderboardRoutes);
+router.use("/social", socialRoutes);
+router.use("/posts", postsRoutes);
+router.use("/feed", feedRoutes);
+router.use("/messages", messagesRoutes);
+router.use("/notifications", notificationsRoutes);
 
 export default router;

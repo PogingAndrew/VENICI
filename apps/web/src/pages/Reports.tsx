@@ -9,6 +9,7 @@ interface ReportSummary {
   avgCaloriesConsumed: number;
   avgProteinG: number;
   totalWorkouts: number;
+  totalWeightLiftedKg: number;
   totalCardioSessions: number;
   totalCardioDistanceKm: number;
   totalCaloriesBurned: number;
@@ -83,6 +84,7 @@ export default function Reports() {
                 <Metric label="Avg calories" value={`${r.summaryJson.avgCaloriesConsumed}`} />
                 <Metric label="Avg protein" value={`${r.summaryJson.avgProteinG} g`} />
                 <Metric label="Total workouts" value={`${r.summaryJson.totalWorkouts}`} />
+                <Metric label="Total weight lifted" value={`${r.summaryJson.totalWeightLiftedKg.toLocaleString()} kg`} />
                 <Metric label="Cardio sessions" value={`${r.summaryJson.totalCardioSessions}`} />
                 <Metric label="Cardio distance" value={`${r.summaryJson.totalCardioDistanceKm} km`} />
                 <Metric label="Calories burned" value={`${r.summaryJson.totalCaloriesBurned}`} />

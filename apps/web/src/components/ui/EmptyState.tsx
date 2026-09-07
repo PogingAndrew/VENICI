@@ -1,9 +1,22 @@
-export function EmptyState({ icon = "📭", title, hint }: { icon?: string; title: string; hint?: string }) {
+import { ReactNode } from "react";
+
+export function EmptyState({
+  icon = "📭",
+  title,
+  hint,
+  children,
+}: {
+  icon?: string;
+  title: string;
+  hint?: string;
+  children?: ReactNode;
+}) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl2 border border-dashed border-slate-200 bg-slate-50 py-12 text-center">
       <div className="mb-2 text-3xl">{icon}</div>
       <p className="font-medium text-ink-700">{title}</p>
       {hint && <p className="mt-1 max-w-sm text-sm text-ink-500">{hint}</p>}
+      {children}
     </div>
   );
 }

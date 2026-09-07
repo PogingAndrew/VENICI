@@ -174,7 +174,8 @@ export default function Workouts() {
             </div>
             <div className="space-y-2">
               {draftExercises.map((d, i) => (
-                <div key={i} className="grid grid-cols-4 gap-2">
+                <div key={i}>
+                  <div className="grid grid-cols-5 gap-2">
                   <select
                     className="col-span-2 rounded-lg border border-slate-200 px-2 py-1 text-sm"
                     value={d.exerciseId}
@@ -212,6 +213,28 @@ export default function Workouts() {
                       setDraftExercises(copy);
                     }}
                   />
+                  <input
+                    type="number"
+                    step="0.5"
+                    placeholder="Weight (kg)"
+                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                    value={d.weightKg}
+                    onChange={(e) => {
+                      const copy = [...draftExercises];
+                      copy[i].weightKg = e.target.value;
+                      setDraftExercises(copy);
+                    }}
+                  />
+                  </div>
+                  {Number(d.sets) > 0 && Number(d.reps) > 0 && Number(d.weightKg) > 0 && (
+                    <p className="mt-1 text-xs text-ink-500">
+                      Volume: {d.sets} × {d.reps} × {d.weightKg}kg ={" "}
+                      <span className="font-semibold text-brand-700">
+                        {(Number(d.sets) * Number(d.reps) * Number(d.weightKg)).toLocaleString()} kg
+                      </span>{" "}
+                      lifted
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
